@@ -1,0 +1,1727 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boomba — Monitor Post Spegnimento ADV</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #07090f;
+  --s1: #0d1018;
+  --s2: #131720;
+  --s3: #1a1f2c;
+  --border: #1e2535;
+  --green: #00d68f;
+  --green-dim: rgba(0,214,143,0.08);
+  --red: #ff4757;
+  --red-dim: rgba(255,71,87,0.08);
+  --yellow: #ffa502;
+  --yellow-dim: rgba(255,165,2,0.08);
+  --blue: #3d9bff;
+  --blue-dim: rgba(61,155,255,0.08);
+  --purple: #a55eea;
+  --text: #dde3f0;
+  --muted: #4a5568;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; }
+
+/* TOPBAR */
+.topbar {
+  background:var(--s1);
+  border-bottom:1px solid var(--border);
+  padding:0 28px;
+  height:52px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  position:sticky; top:0; z-index:200;
+}
+.tb-left { display:flex; align-items:center; gap:20px; }
+.brand { font-family:var(--mono); font-size:13px; color:var(--green); letter-spacing:.12em; }
+.badge { font-family:var(--mono); font-size:10px; padding:3px 9px; border-radius:3px; letter-spacing:.06em; }
+.badge-day { background:rgba(255,165,2,0.15); color:var(--yellow); border:1px solid rgba(255,165,2,0.25); }
+.badge-phase { background:var(--s3); color:var(--muted); border:1px solid var(--border); }
+.tb-right { display:flex; align-items:center; gap:14px; font-family:var(--mono); font-size:11px; color:var(--muted); }
+.period-label { color:var(--blue); }
+
+/* HERO METRICS */
+.hero {
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  gap:1px;
+  background:var(--border);
+  border-bottom:1px solid var(--border);
+}
+.hm {
+  background:var(--s1);
+  padding:18px 20px;
+  position:relative;
+  overflow:hidden;
+}
+.hm::after {
+  content:'';
+  position:absolute;
+  bottom:0; left:0; right:0;
+  height:1px;
+}
+.hm.g::after { background:var(--green); }
+.hm.r::after { background:var(--red); }
+.hm.y::after { background:var(--yellow); }
+.hm.b::after { background:var(--blue); }
+.hm-label { font-family:var(--mono); font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; margin-bottom:6px; }
+.hm-val { font-family:var(--mono); font-size:22px; font-weight:700; color:var(--text); line-height:1; }
+.hm-val.green { color:var(--green); }
+.hm-val.red { color:var(--red); }
+.hm-delta { font-family:var(--mono); font-size:11px; margin-top:5px; }
+.hm-delta.up { color:var(--green); }
+.hm-delta.down { color:var(--red); }
+.hm-sub { font-size:10px; color:var(--muted); margin-top:3px; }
+
+/* TABS */
+.tabs-wrap {
+  background:var(--s1);
+  border-bottom:1px solid var(--border);
+  padding:0 28px;
+  display:flex;
+  gap:0;
+}
+.tab {
+  font-family:var(--mono);
+  font-size:11px;
+  padding:14px 18px;
+  cursor:pointer;
+  color:var(--muted);
+  border-bottom:2px solid transparent;
+  transition:all .15s;
+  letter-spacing:.04em;
+  white-space:nowrap;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.tab:hover { color:var(--text); }
+.tab.active { color:var(--green); border-bottom-color:var(--green); }
+.tab-dot {
+  width:6px; height:6px; border-radius:50%;
+  background:var(--muted);
+}
+.tab.active .tab-dot { background:var(--green); }
+
+/* CONTENT */
+.content { padding:28px; }
+.panel { display:none; }
+.panel.visible { display:block; }
+
+/* SECTION TITLE */
+.sec-head {
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  margin-bottom:20px;
+}
+.sec-title { font-size:18px; font-weight:600; }
+.sec-sub { font-size:12px; color:var(--muted); margin-top:3px; }
+
+/* CHANNEL TABLE */
+.ch-table { width:100%; border-collapse:collapse; }
+.ch-table th {
+  font-family:var(--mono);
+  font-size:9px;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  padding:10px 14px;
+  border-bottom:1px solid var(--border);
+  text-align:left;
+  white-space:nowrap;
+}
+.ch-table th.right { text-align:right; }
+.ch-row { border-bottom:1px solid var(--border); transition:background .12s; }
+.ch-row:hover { background:var(--s2); }
+.ch-table td { padding:11px 14px; font-size:13px; vertical-align:middle; }
+.ch-table td.right { text-align:right; font-family:var(--mono); font-size:12px; }
+.ch-name { font-size:13px; color:var(--text); }
+.ch-source { font-family:var(--mono); font-size:10px; color:var(--muted); margin-top:2px; }
+.ch-bar-wrap { width:120px; height:4px; background:var(--s3); border-radius:2px; display:inline-block; vertical-align:middle; margin-left:8px; }
+.ch-bar { height:100%; border-radius:2px; }
+
+/* DELTA CHIPS */
+.delta { font-family:var(--mono); font-size:11px; padding:2px 7px; border-radius:3px; white-space:nowrap; }
+.delta.up { background:var(--green-dim); color:var(--green); }
+.delta.down { background:var(--red-dim); color:var(--red); }
+.delta.neutral { background:var(--s3); color:var(--muted); }
+
+/* DAILY TREND */
+.daily-grid {
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:12px;
+  margin-bottom:28px;
+}
+.day-card {
+  background:var(--s2);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:16px;
+}
+.day-card-date { font-family:var(--mono); font-size:10px; color:var(--muted); margin-bottom:10px; }
+.day-card-orders { font-family:var(--mono); font-size:24px; font-weight:700; color:var(--text); }
+.day-card-rev { font-family:var(--mono); font-size:13px; color:var(--green); margin-top:4px; }
+.day-card-aov { font-size:11px; color:var(--muted); margin-top:4px; }
+.day-bar-wrap { height:4px; background:var(--s3); border-radius:2px; margin-top:12px; }
+.day-bar { height:100%; border-radius:2px; background:var(--green); }
+
+/* VERDICT CARDS */
+.verdict-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:24px; }
+.verdict-card {
+  background:var(--s2);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:20px;
+  border-left:3px solid var(--border);
+}
+.verdict-card.ok { border-left-color:var(--green); }
+.verdict-card.warn { border-left-color:var(--yellow); }
+.verdict-card.danger { border-left-color:var(--red); }
+.verdict-card.info { border-left-color:var(--blue); }
+.verdict-icon { font-size:18px; margin-bottom:8px; }
+.verdict-title { font-size:14px; font-weight:600; margin-bottom:6px; }
+.verdict-text { font-size:12px; color:var(--muted); line-height:1.6; }
+
+/* MINI CHART */
+.spark-wrap { display:flex; align-items:flex-end; gap:3px; height:40px; }
+.spark-bar { flex:1; border-radius:2px 2px 0 0; min-width:6px; transition:opacity .2s; }
+.spark-bar:hover { opacity:.7; }
+
+/* STAT ROW */
+.stat-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 0;
+  border-bottom:1px solid var(--border);
+}
+.stat-label { font-size:13px; color:var(--text); }
+.stat-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+.stat-vals { display:flex; align-items:center; gap:16px; }
+.stat-pre { font-family:var(--mono); font-size:12px; color:var(--muted); }
+.stat-post { font-family:var(--mono); font-size:14px; font-weight:600; color:var(--text); }
+
+/* TWO COL */
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+.card {
+  background:var(--s2);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:20px;
+}
+.card-title { font-family:var(--mono); font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:16px; }
+
+/* HIGHLIGHT BOX */
+.highlight {
+  background:var(--green-dim);
+  border:1px solid rgba(0,214,143,0.2);
+  border-radius:6px;
+  padding:16px 20px;
+  margin:20px 0;
+}
+.highlight.danger {
+  background:var(--red-dim);
+  border-color:rgba(255,71,87,0.2);
+}
+.highlight.warn {
+  background:var(--yellow-dim);
+  border-color:rgba(255,165,2,0.2);
+}
+.highlight-title { font-family:var(--mono); font-size:11px; color:var(--green); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+.highlight.danger .highlight-title { color:var(--red); }
+.highlight.warn .highlight-title { color:var(--yellow); }
+.highlight-text { font-size:13px; color:var(--text); line-height:1.6; }
+
+/* ATTRIBUTION */
+.attr-step {
+  display:flex;
+  gap:16px;
+  padding:16px 0;
+  border-bottom:1px solid var(--border);
+  align-items:flex-start;
+}
+.attr-num {
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--bg);
+  background:var(--muted);
+  width:24px; height:24px;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+  font-weight:700;
+}
+.attr-num.red { background:var(--red); }
+.attr-num.yellow { background:var(--yellow); }
+.attr-num.blue { background:var(--blue); }
+.attr-title { font-size:14px; font-weight:600; margin-bottom:5px; }
+.attr-text { font-size:12px; color:var(--muted); line-height:1.65; }
+.attr-proof {
+  background:var(--s3);
+  border-left:3px solid var(--blue);
+  padding:12px 16px;
+  border-radius:0 6px 6px 0;
+  margin-top:8px;
+  font-size:12px;
+  line-height:1.6;
+}
+.attr-proof strong { color:var(--blue); font-family:var(--mono); }
+/* COMMENTS */
+.comment-block {
+  background:var(--s2);
+  border:1px solid var(--border);
+  border-radius:6px;
+  margin-bottom:16px;
+  overflow:hidden;
+}
+.comment-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:14px 18px;
+  cursor:pointer;
+  transition:background .15s;
+  user-select:none;
+}
+.comment-header:hover { background:var(--s3); }
+.comment-header-left { display:flex; align-items:center; gap:12px; }
+.comment-channel { font-size:14px; font-weight:600; }
+.comment-source { font-family:var(--mono); font-size:10px; color:var(--muted); }
+.comment-status { font-family:var(--mono); font-size:10px; padding:3px 9px; border-radius:3px; }
+.comment-arrow { font-size:10px; color:var(--muted); transition:transform .2s; }
+.comment-arrow.open { transform:rotate(180deg); }
+.comment-body { padding:0 18px; max-height:0; overflow:hidden; transition:max-height .3s ease, padding .3s; }
+.comment-body.open { max-height:800px; padding:0 18px 18px; }
+.discrepancy-row {
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:12px;
+  margin-bottom:12px;
+}
+.disc-box {
+  background:var(--s3);
+  border-radius:5px;
+  padding:12px;
+}
+.disc-label { font-family:var(--mono); font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+.disc-val { font-family:var(--mono); font-size:13px; font-weight:600; }
+.disc-val.red { color:var(--red); }
+.disc-val.green { color:var(--green); }
+.disc-val.yellow { color:var(--yellow); }
+.comment-note {
+  background:var(--s1);
+  border:1px solid var(--border);
+  border-radius:5px;
+  padding:12px 14px;
+  font-size:12px;
+  color:var(--text);
+  line-height:1.65;
+  margin-top:8px;
+}
+.comment-note .note-title { font-family:var(--mono); font-size:10px; color:var(--yellow); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+.editable-note {
+  width:100%;
+  background:var(--s3);
+  border:1px solid var(--border);
+  border-radius:5px;
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:12px;
+  padding:10px 12px;
+  resize:vertical;
+  min-height:70px;
+  outline:none;
+  margin-top:8px;
+  transition:border-color .2s;
+  line-height:1.6;
+}
+.editable-note:focus { border-color:var(--blue); }
+.editable-note::placeholder { color:var(--muted); }
+/* EDITABLE FIELDS */
+.inline-edit {
+  background: var(--s3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  width: 110px;
+  outline: none;
+  transition: border-color .2s;
+}
+.inline-edit:focus { border-color: var(--blue); background: var(--s2); }
+.inline-edit::placeholder { color: var(--muted); font-size: 11px; }
+
+/* PERIOD SWITCHER */
+.period-bar {
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.period-bar-left { display: flex; align-items: center; gap: 10px; }
+.period-label-sm { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.period-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 5px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--s2);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s;
+}
+.period-btn:hover { color: var(--text); border-color: var(--blue); }
+.period-btn.active { background: rgba(61,155,255,0.1); color: var(--blue); border-color: var(--blue); }
+.period-bar-right { display: flex; gap: 8px; }
+.tool-btn {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--s2);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s;
+  letter-spacing: .04em;
+}
+.tool-btn:hover { color: var(--text); border-color: var(--muted); }
+.tool-btn.export { border-color: rgba(0,214,143,0.3); color: var(--green); }
+.tool-btn.export:hover { background: var(--green-dim); }
+.tool-btn.danger { border-color: rgba(255,71,87,0.3); color: var(--red); }
+.tool-btn.danger:hover { background: var(--red-dim); }
+/* RESPONSIVE */
+@media(max-width:1100px) { .hero { grid-template-columns:repeat(3,1fr); } }
+@media(max-width:700px) { .hero { grid-template-columns:repeat(2,1fr); } .daily-grid { grid-template-columns:repeat(2,1fr); } .two-col { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tb-left">
+    <div class="brand">◈ BOOMBA</div>
+    <span class="badge badge-day">GIORNO 5</span>
+    <span class="badge badge-phase">Primi segnali — Fase di inerzia</span>
+  </div>
+  <div class="tb-right">
+    <span class="period-label">27 feb – 3 mar 2026</span>
+    <span>vs</span>
+    <span>22–26 feb 2026</span>
+    <span style="color:var(--red)">Spegnimento: 26 feb</span>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hm r">
+    <div class="hm-label">Sessioni</div>
+    <div class="hm-val" id="hero-sessioni">—</div>
+    <div class="hm-sub">periodo analizzato</div>
+  </div>
+  <div class="hm r">
+    <div class="hm-label">Utenti Totali</div>
+    <div class="hm-val" id="hero-utenti">—</div>
+    <div class="hm-sub">periodo analizzato</div>
+  </div>
+  <div class="hm r">
+    <div class="hm-label">Ordini Reali</div>
+    <div class="hm-val" id="hero-ordini">—</div>
+    <div class="hm-sub">da CRM/eCommerce</div>
+  </div>
+  <div class="hm g">
+    <div class="hm-label">Revenue</div>
+    <div class="hm-val" id="hero-revenue">—</div>
+    <div class="hm-sub">fatturato reale (€)</div>
+  </div>
+  <div class="hm g">
+    <div class="hm-label">CR Globale</div>
+    <div class="hm-val green" id="hero-cr">—</div>
+    <div class="hm-sub">calcolato automaticamente</div>
+  </div>
+  <div class="hm y">
+    <div class="hm-label">AOV</div>
+    <div class="hm-val" id="hero-aov">—</div>
+    <div class="hm-sub">calcolato automaticamente</div>
+  </div>
+</div>
+
+<!-- PERIOD BAR -->
+<div class="period-bar">
+  <div class="period-bar-left">
+    <span class="period-label-sm">Periodo:</span>
+    <div id="period-switcher" style="display:flex;gap:8px;"></div>
+  </div>
+  <div class="period-bar-right">
+    <button class="tool-btn export" onclick="exportData()">⬇ Esporta JSON</button>
+    <label class="tool-btn" style="cursor:pointer;">⬆ Importa JSON<input type="file" accept=".json" style="display:none" onchange="importData(this)"></label>
+    <button class="tool-btn danger" onclick="resetPeriod()">✕ Reset periodo</button>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-wrap">
+  <div class="tab active" onclick="showTab('traffico',this)"><span class="tab-dot"></span>Traffico</div>
+  <div class="tab" onclick="showTab('canali',this)"><span class="tab-dot"></span>Canali</div>
+  <div class="tab" onclick="showTab('gads',this)"><span class="tab-dot"></span>Google Ads</div>
+  <div class="tab" onclick="showTab('ordini',this)"><span class="tab-dot"></span>Ordini & Revenue</div>
+  <div class="tab" onclick="showTab('meta',this)"><span class="tab-dot"></span>Meta + Criteo</div>
+  <div class="tab" onclick="showTab('verdict',this)"><span class="tab-dot"></span>Valutazione</div>
+  <div class="tab" onclick="showTab('attribuzione',this)"><span class="tab-dot"></span>Attribuzione</div>
+  <div class="tab" onclick="showTab('commenti',this)"><span class="tab-dot"></span>Note & Discrepanze</div>
+</div>
+
+<div class="content">
+
+<!-- TRAFFICO -->
+<div class="panel visible" id="panel-traffico">
+  <div class="sec-head">
+    <div>
+      <div class="sec-title">Traffico Globale</div>
+      <div class="sec-sub">Qualità e volumi sessioni — inserisci i valori PRE e POST per ogni metrica</div>
+    </div>
+  </div>
+  <div class="highlight">
+    <div class="highlight-title">✓ Segnale positivo — Giorno 5</div>
+    <div class="highlight-text">Il calo del -25.2% è quasi interamente attribuibile a Meta (-97.4%) e Criteo (-98.5%), che portavano traffico di bassissima qualità. Il traffico reale e qualificato è sostanzialmente invariato.</div>
+  </div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Qualità traffico — PRE vs POST</div>
+      <div id="traffico-quality"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Sessioni per macro-canale — PRE vs POST</div>
+      <div id="traffico-channels"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CANALI -->
+<div class="panel" id="panel-canali">
+  <div class="sec-head">
+    <div>
+      <div class="sec-title">Revenue per Canale</div>
+      <div class="sec-sub">Confronto PRE (22-26 feb) vs POST (27 feb – 3 mar) spegnimento</div>
+    </div>
+  </div>
+  <table class="ch-table">
+    <thead>
+      <tr>
+        <th>Canale</th>
+        <th>Sorgente</th>
+        <th class="right">Sessioni POST</th>
+        <th class="right">Sessioni PRE</th>
+        <th class="right">Δ Sessioni</th>
+        <th class="right">Revenue POST</th>
+        <th class="right">Revenue PRE</th>
+        <th class="right">Δ Revenue</th>
+        <th class="right">EpS POST</th>
+        <th class="right">Durata POST</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="ch-row">
+        <td><div class="ch-name">Cross-network</div></td>
+        <td><div class="ch-source">google / cpc</div></td>
+        <td class="right">6.158</td>
+        <td class="right">6.671</td>
+        <td class="right"><span class="delta down">-7.7%</span></td>
+        <td class="right">€67.255</td>
+        <td class="right">€59.432</td>
+        <td class="right"><span class="delta up">+13.2%</span></td>
+        <td class="right">€10.93</td>
+        <td class="right">31s</td>
+      </tr>
+      <tr class="ch-row">
+        <td><div class="ch-name">Paid Other</div></td>
+        <td><div class="ch-source">KlarnaSearch / cpc</div></td>
+        <td class="right">4.895</td>
+        <td class="right">5.372</td>
+        <td class="right"><span class="delta down">-8.9%</span></td>
+        <td class="right">€60.938</td>
+        <td class="right">€85.693</td>
+        <td class="right"><span class="delta down">-28.9%</span></td>
+        <td class="right">€12.45</td>
+        <td class="right">53s</td>
+      </tr>
+      <tr class="ch-row">
+        <td><div class="ch-name">Organic Search</div></td>
+        <td><div class="ch-source">google / organic</div></td>
+        <td class="right">3.663</td>
+        <td class="right">4.453</td>
+        <td class="right"><span class="delta down">-17.7%</span></td>
+        <td class="right">€34.995</td>
+        <td class="right">€49.321</td>
+        <td class="right"><span class="delta down">-29.0%</span></td>
+        <td class="right">€9.55</td>
+        <td class="right">58s</td>
+      </tr>
+      <tr class="ch-row">
+        <td><div class="ch-name">Direct</div></td>
+        <td><div class="ch-source">(direct) / (none)</div></td>
+        <td class="right">6.080</td>
+        <td class="right">6.223</td>
+        <td class="right"><span class="delta down">-2.3%</span></td>
+        <td class="right">€21.782</td>
+        <td class="right">€33.128</td>
+        <td class="right"><span class="delta down">-34.2%</span></td>
+        <td class="right">€3.58</td>
+        <td class="right">21s</td>
+      </tr>
+      <tr class="ch-row">
+        <td><div class="ch-name">Paid Search</div></td>
+        <td><div class="ch-source">google / cpc (brand)</div></td>
+        <td class="right">1.353</td>
+        <td class="right">1.224</td>
+        <td class="right"><span class="delta up">+10.5%</span></td>
+        <td class="right">€7.728</td>
+        <td class="right">€1.600</td>
+        <td class="right"><span class="delta up">+383%</span></td>
+        <td class="right">€5.71</td>
+        <td class="right">40s</td>
+      </tr>
+      <tr class="ch-row">
+        <td><div class="ch-name">Email</div></td>
+        <td><div class="ch-source">Klaviyo / email</div></td>
+        <td class="right">731</td>
+        <td class="right">396</td>
+        <td class="right"><span class="delta up">+84.6%</span></td>
+        <td class="right">€2.754</td>
+        <td class="right">€2.834</td>
+        <td class="right"><span class="delta down">-2.8%</span></td>
+        <td class="right">€3.77</td>
+        <td class="right">53s</td>
+      </tr>
+      <tr class="ch-row">
+        <td><div class="ch-name">Display</div></td>
+        <td><div class="ch-source">criteo / display</div></td>
+        <td class="right">164</td>
+        <td class="right">208</td>
+        <td class="right"><span class="delta down">-21.2%</span></td>
+        <td class="right">€1.609</td>
+        <td class="right">€3.258</td>
+        <td class="right"><span class="delta down">-50.6%</span></td>
+        <td class="right">€9.81</td>
+        <td class="right">71s</td>
+      </tr>
+      <tr class="ch-row">
+        <td><div class="ch-name">Referral</div></td>
+        <td><div class="ch-source">scalapay / portal</div></td>
+        <td class="right">147</td>
+        <td class="right">188</td>
+        <td class="right"><span class="delta down">-21.8%</span></td>
+        <td class="right">€4.412</td>
+        <td class="right">€12.441</td>
+        <td class="right"><span class="delta down">-64.5%</span></td>
+        <td class="right">€30.01</td>
+        <td class="right">76s</td>
+      </tr>
+      <tr class="ch-row" style="background:var(--red-dim)">
+        <td><div class="ch-name" style="color:var(--red)">Paid Social</div></td>
+        <td><div class="ch-source">Meta / paid</div></td>
+        <td class="right">77</td>
+        <td class="right">5.134</td>
+        <td class="right"><span class="delta down">-98.5%</span></td>
+        <td class="right">€879</td>
+        <td class="right">€540</td>
+        <td class="right"><span class="delta up">+62.8%</span></td>
+        <td class="right" style="color:var(--red)">€0.017</td>
+        <td class="right">44s</td>
+      </tr>
+      <tr class="ch-row">
+        <td><div class="ch-name">Paid Social</div></td>
+        <td><div class="ch-source">TikTok / paid</div></td>
+        <td class="right">124</td>
+        <td class="right">1.046</td>
+        <td class="right"><span class="delta down">-88.1%</span></td>
+        <td class="right">€359</td>
+        <td class="right">€1.989</td>
+        <td class="right"><span class="delta down">-81.9%</span></td>
+        <td class="right">€2.90</td>
+        <td class="right">42s</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="highlight warn" style="margin-top:20px">
+    <div class="highlight-title">⚠ Anomalia: Direct Revenue -34.2%</div>
+    <div class="highlight-text">Le sessioni Direct calano solo del 2.3% ma la revenue crolla del 34.2%. Il canale Direct portava ordini che ora non arrivano più — probabilmente utenti retargettizzati da Meta/Criteo che tornavano "direttamente" ma erano stati originati da paid. Questo è il vero costo nascosto dello spegnimento.</div>
+  </div>
+</div>
+
+<!-- GOOGLE ADS -->
+<div class="panel" id="panel-gads">
+  <div class="sec-head">
+    <div>
+      <div class="sec-title">Google Ads</div>
+      <div class="sec-sub">Performance campagne attive — inserisci i dati da Google Ads</div>
+    </div>
+  </div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Search Brand — DT | [Search] Brand [max clic]</div>
+      <div id="gads-brand"></div>
+      <div style="margin-top:12px; padding:10px; background:var(--green-dim); border-radius:4px; font-size:12px; color:var(--green)">
+        ✓ Brand search efficientissima. CTR migliora, CPO crolla. Tenere sempre accesa.
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Performance Max — Totale account</div>
+      <div id="gads-pmax"></div>
+    </div>
+  </div>
+
+  <!-- PMAX CAMPAGNE SINGOLE -->
+  <div class="card" style="margin-top:20px">
+    <div class="card-title">Performance Max — Campagne singole (Giorno 5)</div>
+    <table class="ch-table">
+      <thead>
+        <tr>
+          <th>Campagna</th>
+          <th class="right">ROAS 3gg</th>
+          <th class="right">CPO €</th>
+          <th class="right">Δ CPO</th>
+          <th class="right">Conv.</th>
+          <th class="right">Stato</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="ch-row">
+          <td><div class="ch-name" style="font-size:12px">Solo iPhone Top audience lusso 17_EU</div></td>
+          <td class="right">32.74</td><td class="right">€19.94</td>
+          <td class="right"><span class="delta up">-26.4%</span></td>
+          <td class="right">565</td>
+          <td class="right"><span class="delta up">✓ OK</span></td>
+        </tr>
+        <tr class="ch-row">
+          <td><div class="ch-name" style="font-size:12px">Solo Samsung Serie S25 Top [max val conv 2404]</div></td>
+          <td class="right">13.67</td><td class="right">€35.02</td>
+          <td class="right"><span class="delta up">-41.5%</span></td>
+          <td class="right">14</td>
+          <td class="right"><span class="delta up">✓ OK</span></td>
+        </tr>
+        <tr class="ch-row">
+          <td><div class="ch-name" style="font-size:12px">Solo iPhone Top audience lusso 17_ITA</div></td>
+          <td class="right">56.83</td><td class="right">€58.47</td>
+          <td class="right"><span class="delta down">-21.8%</span></td>
+          <td class="right">137</td>
+          <td class="right"><span class="delta up">✓ OK</span></td>
+        </tr>
+        <tr class="ch-row">
+          <td><div class="ch-name" style="font-size:12px">Top Xiaomi [max conv 1905]</div></td>
+          <td class="right">22.92</td><td class="right">€11.74</td>
+          <td class="right"><span class="delta up">-25.9%</span></td>
+          <td class="right">9</td>
+          <td class="right"><span class="delta up">✓ OK</span></td>
+        </tr>
+        <tr class="ch-row">
+          <td><div class="ch-name" style="font-size:12px">Pixel 10 [max conv 2407]</div></td>
+          <td class="right">22.57</td><td class="right">€17.86</td>
+          <td class="right"><span class="delta up">-32.6%</span></td>
+          <td class="right">6</td>
+          <td class="right"><span class="delta up">✓ OK</span></td>
+        </tr>
+        <tr class="ch-row">
+          <td><div class="ch-name" style="font-size:12px">Smartphone per fascia [roas 500 0511]</div></td>
+          <td class="right">28.21</td><td class="right">€6.80</td>
+          <td class="right"><span class="delta up">-11.7%</span></td>
+          <td class="right">14</td>
+          <td class="right"><span class="delta up">✓ OK</span></td>
+        </tr>
+        <tr class="ch-row">
+          <td><div class="ch-name" style="font-size:12px">Solo iPhone Top audience lusso i16</div></td>
+          <td class="right">52.93</td><td class="right">€26.52</td>
+          <td class="right"><span class="delta up">+44.1%</span></td>
+          <td class="right">8</td>
+          <td class="right"><span class="delta neutral">≈ MONIT.</span></td>
+        </tr>
+        <tr class="ch-row">
+          <td><div class="ch-name" style="font-size:12px">Solo iPhone Top audience lusso i15</div></td>
+          <td class="right">11.75</td><td class="right">€132.51</td>
+          <td class="right"><span class="delta down">+311%</span></td>
+          <td class="right">1</td>
+          <td class="right"><span class="delta down">⚠ VERIFICA</span></td>
+        </tr>
+        <tr class="ch-row">
+          <td><div class="ch-name" style="font-size:12px">Solo Xiaomi - Oneplus [roas 640 2101]</div></td>
+          <td class="right">39.10</td><td class="right">€22.28</td>
+          <td class="right"><span class="delta up">+21.8%</span></td>
+          <td class="right">4</td>
+          <td class="right"><span class="delta up">✓ OK</span></td>
+        </tr>
+        <tr class="ch-row">
+          <td><div class="ch-name" style="font-size:12px">Top Motorola [max conv 1905]</div></td>
+          <td class="right">39.20</td><td class="right">€43.67</td>
+          <td class="right"><span class="delta up">+149.5%</span></td>
+          <td class="right">2</td>
+          <td class="right"><span class="delta neutral">≈ MONIT.</span></td>
+        </tr>
+        <tr class="ch-row" style="background:var(--red-dim)">
+          <td><div class="ch-name" style="font-size:12px; color:var(--red)">Airpods [max val conv 1012]</div></td>
+          <td class="right" style="color:var(--red)">0.00</td><td class="right">€0</td>
+          <td class="right"><span class="delta down">-100%</span></td>
+          <td class="right" style="color:var(--red)">0</td>
+          <td class="right"><span class="delta down">✗ ZERO CONV</span></td>
+        </tr>
+        <tr class="ch-row" style="background:var(--red-dim)">
+          <td><div class="ch-name" style="font-size:12px; color:var(--red)">Resto Sito [roas 500 0511]</div></td>
+          <td class="right" style="color:var(--red)">0.00</td><td class="right">€0</td>
+          <td class="right"><span class="delta down">-100%</span></td>
+          <td class="right" style="color:var(--red)">0</td>
+          <td class="right"><span class="delta down">✗ ZERO CONV</span></td>
+        </tr>
+        <tr class="ch-row">
+          <td><div class="ch-name" style="font-size:12px">Solo Google No 10 [max val conv 2310]</div></td>
+          <td class="right">35.00</td><td class="right">€48.49</td>
+          <td class="right"><span class="delta down">+198.6%</span></td>
+          <td class="right">1</td>
+          <td class="right"><span class="delta down">⚠ VERIFICA</span></td>
+        </tr>
+        <tr class="ch-row">
+          <td><div class="ch-name" style="font-size:12px">Solo iPhone Top 16e [max conv 2407]</div></td>
+          <td class="right">78.90</td><td class="right">€32.15</td>
+          <td class="right"><span class="delta up">+115.1%</span></td>
+          <td class="right">2</td>
+          <td class="right"><span class="delta neutral">≈ MONIT.</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px; padding:10px; background:var(--red-dim); border-radius:4px; font-size:12px; color:var(--red)">
+      ✗ Priorità immediata: Airpods e Resto Sito a zero conversioni — pausa o revisione asset urgente.
+    </div>
+  </div>
+</div>
+
+<!-- ORDINI -->
+<div class="panel" id="panel-ordini">
+  <div class="sec-head">
+    <div>
+      <div class="sec-title">Ordini & Revenue Giornalieri</div>
+      <div class="sec-sub">Inserisci i dati giorno per giorno — CR e AOV vengono calcolati automaticamente</div>
+    </div>
+  </div>
+  <div class="daily-grid" id="ordini-daily"></div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Totale periodo</div>
+      <div id="ordini-totals"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Andamento ordini</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px;">Il grafico si aggiorna automaticamente con i dati inseriti nelle card sopra.</div>
+    </div>
+  </div>
+</div>
+
+<!-- META + CRITEO -->
+<div class="panel" id="panel-meta">
+  <div class="sec-head">
+    <div>
+      <div class="sec-title">Meta + Criteo — Analisi Impatto</div>
+      <div class="sec-sub">Confronto diretto PRE vs POST spegnimento</div>
+    </div>
+  </div>
+  <div class="highlight danger">
+    <div class="highlight-title">✗ Verdetto: traffico fantasma</div>
+    <div class="highlight-text">Meta portava 39.744 sessioni in 5 giorni con €540 di revenue. Revenue per sessione: €0.013. Criteo portava 5.134 sessioni con durata media 7 secondi. Entrambi i canali consumavano budget senza generare valore reale.</div>
+  </div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Meta — PRE vs POST</div>
+      <div id="meta-fields"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Criteo — PRE vs POST</div>
+      <div id="criteo-fields"></div>
+    </div>
+  </div>
+  <div class="highlight warn" style="margin-top:20px">
+    <div class="highlight-title">⚠ Il vero impatto dello spegnimento</div>
+    <div class="highlight-text">Il -25.2% di sessioni è quasi tutto Meta+Criteo. Il traffico "reale" cala solo del 6-8%. La perdita di revenue non è causata dalla qualità del traffico rimasto — è causata dal volume mancante di ordini che Meta/Criteo generavano indirettamente attraverso il canale Direct.</div>
+  </div>
+</div>
+
+<!-- VALUTAZIONE -->
+<div class="panel" id="panel-verdict">
+  <div class="sec-head">
+    <div>
+      <div class="sec-title">Valutazione Giorno 5</div>
+      <div class="sec-sub">Analisi onesta — senza sconti</div>
+    </div>
+  </div>
+
+  <div class="verdict-grid">
+    <div class="verdict-card ok">
+      <div class="verdict-icon">✓</div>
+      <div class="verdict-title">Brand search — Solido</div>
+      <div class="verdict-text">Il brand ha domanda reale. CPO crolla del 74%, CTR migliora. Gli utenti che cercano Boomba trovano e comprano. Il brand costruito negli anni regge.</div>
+    </div>
+    <div class="verdict-card ok">
+      <div class="verdict-icon">✓</div>
+      <div class="verdict-title">CR in crescita — Traffico più sano</div>
+      <div class="verdict-text">CR +10.4% post-spegnimento. Il traffico rimanente converte meglio. Significa che Meta e Criteo portavano utenti non intenzionati all'acquisto.</div>
+    </div>
+    <div class="verdict-card ok">
+      <div class="verdict-icon">✓</div>
+      <div class="verdict-title">Organico — Nessun danno SEO</div>
+      <div class="verdict-text">Mini-calo 26-28 feb poi ripresa. La base SEO è solida. Il sito non perde posizionamenti strutturali per via dello spegnimento paid.</div>
+    </div>
+    <div class="verdict-card warn">
+      <div class="verdict-icon">⚠</div>
+      <div class="verdict-title">Direct Revenue -34% — Effetto nascosto</div>
+      <div class="verdict-text">Sessioni Direct quasi stabili (-2.3%) ma revenue crolla del 34%. Gli utenti retargetizzati da Meta tornavano "direttamente". Questo è il costo reale del retargeting spento.</div>
+    </div>
+    <div class="verdict-card warn">
+      <div class="verdict-icon">⚠</div>
+      <div class="verdict-title">AOV 3 marzo — Anomalia</div>
+      <div class="verdict-text">85 ordini (massimo del periodo) con AOV €380 vs media €470. Qualcosa di diverso è stato venduto quel giorno. Verificare categoria prodotti e presenza di sconti.</div>
+    </div>
+    <div class="verdict-card warn">
+      <div class="verdict-icon">⚠</div>
+      <div class="verdict-title">Email — Volume senza qualità</div>
+      <div class="verdict-text">Klaviyo +84.6% sessioni ma CR -27.8%. Si stanno inviando più email a liste meno calde. Segmentare subito: flussi automatici vs broadcast su lista fredda.</div>
+    </div>
+    <div class="verdict-card danger">
+      <div class="verdict-icon">✗</div>
+      <div class="verdict-title">PMax Airpods + Resto Sito — Campagne zombie</div>
+      <div class="verdict-text">Zero conversioni nel periodo. Stavano girando a vuoto anche prima dello spegnimento Meta. Questo indica monitoraggio insufficiente delle campagne attive.</div>
+    </div>
+    <div class="verdict-card danger">
+      <div class="verdict-icon">✗</div>
+      <div class="verdict-title">Calo dal 9 febbraio — Non investigato</div>
+      <div class="verdict-text">Il traffico Direct era già crollato da ~10K a ~2.5K il 9 febbraio, 17 giorni prima dello spegnimento. Questo evento non è correlato a Meta/Criteo e non è stato ancora spiegato.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:24px">
+    <div class="card-title">Priorità prossimi 7 giorni</div>
+    <div class="stat-row">
+      <div><div class="stat-label" style="color:var(--red)">1. Investigare crollo 9 febbraio</div><div class="stat-sub">Cos'è successo? Spegnimento campagna? Problema tecnico? Non lasciare senza risposta.</div></div>
+    </div>
+    <div class="stat-row">
+      <div><div class="stat-label" style="color:var(--red)">2. Verificare ordini 3 marzo</div><div class="stat-sub">Perché l'AOV è crollato a €380? Controllare mix prodotti venduti e presenza di coupon/sconti non pianificati.</div></div>
+    </div>
+    <div class="stat-row">
+      <div><div class="stat-label" style="color:var(--yellow)">3. Spegnere/investigare Airpods e Resto Sito PMax</div><div class="stat-sub">Zero conversioni = budget bruciato. Pausa immediata o revisione asset e prodotti.</div></div>
+    </div>
+    <div class="stat-row">
+      <div><div class="stat-label" style="color:var(--yellow)">4. Segmentare liste Klaviyo</div><div class="stat-sub">+84% sessioni con -27% CR significa lista sbagliata. Separare flussi automatici da broadcast e misurare separatamente.</div></div>
+    </div>
+    <div class="stat-row">
+      <div><div class="stat-label" style="color:var(--blue)">5. Decidere su Criteo</div><div class="stat-sub">Le 164 sessioni rimaste hanno EpS €9.81 — il canale con budget controllato e lista clienti (non prospecting) potrebbe avere senso. Testare.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ATTRIBUZIONE -->
+<div class="panel" id="panel-attribuzione">
+  <div class="sec-head">
+    <div>
+      <div class="sec-title">Perché GA4 mente su Meta</div>
+      <div class="sec-sub">Guida all'attribuzione per spiegare i dati al cliente</div>
+    </div>
+  </div>
+
+  <div class="highlight danger">
+    <div class="highlight-title">✗ Il problema di fondo</div>
+    <div class="highlight-text">GA4 usa un modello di attribuzione basato sul <strong>last click</strong> o <strong>data-driven</strong> — in entrambi i casi, Meta viene quasi sempre esclusa perché il suo impatto avviene prima dell'ultimo touchpoint. Il risultato: Meta sembra non fare nulla in GA4, ma quando la spegni i risultati calano comunque.</div>
+  </div>
+
+  <div class="card" style="margin:20px 0">
+    <div class="card-title">Le 3 ragioni per cui GA4 sottostima Meta</div>
+
+    <div class="attr-step">
+      <div class="attr-num red">1</div>
+      <div>
+        <div class="attr-title">iOS 14.5+ blocca il pixel — il target di Boomba è iPhone</div>
+        <div class="attr-text">Dal 2021 Apple richiede il consenso esplicito al tracking. La maggior parte degli utenti iPhone nega il consenso. Il pixel Meta non li vede. GA4 non li traccia come "da Meta". Boomba vende smartphone — il suo target principale usa iPhone. Questo significa che una fetta enorme degli acquisti generati da Meta semplicemente non viene mai attribuita a Meta né in Meta né in GA4.</div>
+        <div class="attr-proof">
+          <strong>Prova nei dati:</strong> Meta riporta 25.585 sessioni mobile in un mese con CR 0.08% = 21 transazioni. Ma Meta ha anche speso budget su iOS dove il pixel non funziona — quegli acquisti appaiono in GA4 come "Direct" o "Organic".
+        </div>
+      </div>
+    </div>
+
+    <div class="attr-step">
+      <div class="attr-num yellow">2</div>
+      <div>
+        <div class="attr-title">View-through: l'utente vede, non clicca, poi torna da solo</div>
+        <div class="attr-text">GA4 traccia solo i clic. Meta funziona principalmente per impressioni — l'utente vede l'annuncio su Instagram, non clicca, ma lo ricorda. Due giorni dopo cerca "Boomba iPhone" su Google, clicca sull'organico, compra. GA4 attribuisce l'ordine a "Organic Search". Meta non viene mai menzionata. Questo meccanismo è invisibile a GA4 ma reale.</div>
+        <div class="attr-proof">
+          <strong>Prova nei dati:</strong> Direct revenue cala di <strong>€11.346</strong> (-34.2%) con sessioni Direct quasi stabili (-2.3%). Quelle sessioni ci sono ancora ma non convertono più — perché non sono più "scaldate" dal retargeting Meta. Quei soldi erano Meta, non Direct.
+        </div>
+      </div>
+    </div>
+
+    <div class="attr-step">
+      <div class="attr-num blue">3</div>
+      <div>
+        <div class="attr-title">Cross-device: vede su mobile, compra da desktop</div>
+        <div class="attr-text">L'utente vede l'annuncio Meta su iPhone durante la pausa pranzo. La sera apre il PC, va direttamente su boomba.it e compra. GA4 sul PC registra "Direct". GA4 sul mobile (se tracciato) registra una sessione Meta senza conversione. I due dispositivi non vengono collegati a meno di Google Signals + login — che la maggior parte degli utenti non ha attivato.</div>
+        <div class="attr-proof">
+          <strong>Come dimostrarlo al cliente:</strong> Confronta il periodo PRE vs POST su Direct. Le sessioni Direct calano del 2.3% ma la revenue Direct crolla del 34.2%. Questo gap è statisticamente impossibile senza una causa esterna — e quella causa è il retargeting Meta spento.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">La prova concreta da mostrare al cliente</div>
+      <div style="padding:16px; background:var(--s3); border-radius:5px; margin-top:8px;">
+        <table style="width:100%; border-collapse:collapse; font-size:12px;">
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px 0; color:var(--muted)">Canale</td>
+            <td style="padding:8px; text-align:right; color:var(--muted); font-family:var(--mono); font-size:10px;">Sessioni PRE</td>
+            <td style="padding:8px; text-align:right; color:var(--muted); font-family:var(--mono); font-size:10px;">Sessioni POST</td>
+            <td style="padding:8px; text-align:right; color:var(--muted); font-family:var(--mono); font-size:10px;">Revenue PRE</td>
+            <td style="padding:8px; text-align:right; color:var(--muted); font-family:var(--mono); font-size:10px;">Revenue POST</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px 0;">Direct</td>
+            <td style="padding:8px; text-align:right; font-family:var(--mono); font-size:11px;">6.223</td>
+            <td style="padding:8px; text-align:right; font-family:var(--mono); font-size:11px;">6.080</td>
+            <td style="padding:8px; text-align:right; font-family:var(--mono); font-size:11px; color:var(--green);">€33.128</td>
+            <td style="padding:8px; text-align:right; font-family:var(--mono); font-size:11px; color:var(--red);">€21.782</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0; font-weight:600;">Delta</td>
+            <td style="padding:8px; text-align:right; font-family:var(--mono); font-size:11px; color:var(--muted);">-2.3%</td>
+            <td></td>
+            <td colspan="2" style="padding:8px; text-align:right; font-family:var(--mono); font-size:13px; color:var(--red); font-weight:700;">-€11.346 (-34.2%)</td>
+          </tr>
+        </table>
+        <div style="margin-top:12px; font-size:12px; color:var(--yellow); line-height:1.6;">
+          ⚠ Sessioni quasi identiche, revenue crolla del 34%. L'unica spiegazione logica: quegli utenti erano stati "scaldati" da Meta e ora non convertono più senza il retargeting.
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Come misurare Meta correttamente</div>
+      <div class="attr-step" style="padding:10px 0; border-bottom:1px solid var(--border);">
+        <div class="attr-num" style="background:var(--green); font-size:10px; width:20px; height:20px;">1</div>
+        <div>
+          <div style="font-size:13px; font-weight:500; margin-bottom:3px;">Meta Conversion API (CAPI)</div>
+          <div style="font-size:11px; color:var(--muted);">Invia eventi server-side, bypassando iOS. Recupera il 20-40% di conversioni perse. Implementazione su Shopify richiede 1-2 ore.</div>
+        </div>
+      </div>
+      <div class="attr-step" style="padding:10px 0; border-bottom:1px solid var(--border);">
+        <div class="attr-num" style="background:var(--blue); font-size:10px; width:20px; height:20px;">2</div>
+        <div>
+          <div style="font-size:13px; font-weight:500; margin-bottom:3px;">Meta Conversion Lift Test</div>
+          <div style="font-size:11px; color:var(--muted);">Divide il pubblico in esposto/controllo. Misura l'incremento reale di vendite attribuibile a Meta. Il test più affidabile esistente. Richiede ~2 settimane e budget minimo €5.000.</div>
+        </div>
+      </div>
+      <div class="attr-step" style="padding:10px 0;">
+        <div class="attr-num" style="background:var(--yellow); font-size:10px; width:20px; height:20px;">3</div>
+        <div>
+          <div style="font-size:13px; font-weight:500; margin-bottom:3px;">Marketing Mix Modeling (MMM)</div>
+          <div style="font-size:11px; color:var(--muted);">Analisi statistica su serie storiche che misura l'impatto di ogni canale sulle vendite totali, indipendentemente dall'attribuzione. Richiede 12+ mesi di dati.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NOTE & DISCREPANZE -->
+<div class="panel" id="panel-commenti">
+  <div class="sec-head">
+    <div>
+      <div class="sec-title">Note & Discrepanze per Canale</div>
+      <div class="sec-sub">Spiega al cliente perché due strumenti dicono cose diverse sullo stesso dato</div>
+    </div>
+  </div>
+
+  <!-- Google CPC -->
+  <div class="comment-block">
+    <div class="comment-header" onclick="toggleComment('cpc')">
+      <div class="comment-header-left">
+        <div>
+          <div class="comment-channel">Google CPC — Cross-network</div>
+          <div class="comment-source">google / cpc · Performance Max + Search</div>
+        </div>
+        <span class="comment-status" style="background:var(--yellow-dim); color:var(--yellow); border:1px solid rgba(255,165,2,0.2);">⚠ DISCREPANZA</span>
+      </div>
+      <span class="comment-arrow" id="arrow-cpc">▼</span>
+    </div>
+    <div class="comment-body" id="body-cpc">
+      <div class="discrepancy-row">
+        <div class="disc-box">
+          <div class="disc-label">GA4 dice — Sessioni CPC</div>
+          <div class="disc-val red">-4.8% ↓</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">7.526 → sembra in calo</div>
+        </div>
+        <div class="disc-box">
+          <div class="disc-label">Google Ads dice — Clic Brand</div>
+          <div class="disc-val green">+363 ↑</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">222 → 585 clic, in forte crescita</div>
+        </div>
+        <div class="disc-box">
+          <div class="disc-label">Realtà</div>
+          <div class="disc-val yellow">Entrambi corretti</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">misurano cose diverse</div>
+        </div>
+      </div>
+      <div class="comment-note">
+        <div class="note-title">⚡ Spiegazione discrepanza</div>
+        GA4 aggrega tutto il traffico CPC in una unica riga "google / cpc" che include sia le campagne PMax (Shopping) che la Search Brand. Le campagne PMax hanno ridotto i clic del -7.6% (meno budget, meno impressioni), mentre la Search Brand ha aumentato i clic del +363 perché con meno concorrenza interna il CTR è migliorato. Il totale aggregato in GA4 mostra un calo moderato che nasconde questi due movimenti opposti.
+        Inoltre GA4 conta le <strong>sessioni</strong> (una persona può fare più sessioni da più clic), mentre Google Ads conta i <strong>clic</strong> — non sono la stessa metrica.
+      </div>
+      <textarea class="editable-note" id="note-cpc" placeholder="Aggiungi una nota per il cliente..."></textarea>
+    </div>
+  </div>
+
+  <!-- Meta -->
+  <div class="comment-block">
+    <div class="comment-header" onclick="toggleComment('meta')">
+      <div class="comment-header-left">
+        <div>
+          <div class="comment-channel">Meta Paid Social</div>
+          <div class="comment-source">Meta / paid · Campagne spente il 26 feb</div>
+        </div>
+        <span class="comment-status" style="background:var(--red-dim); color:var(--red); border:1px solid rgba(255,71,87,0.2);">✗ DATI NON AFFIDABILI</span>
+      </div>
+      <span class="comment-arrow" id="arrow-meta">▼</span>
+    </div>
+    <div class="comment-body" id="body-meta">
+      <div class="discrepancy-row">
+        <div class="disc-box">
+          <div class="disc-label">GA4 mostra — CR Meta</div>
+          <div class="disc-val red">0.08%</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">21 transazioni su 25.585 sessioni</div>
+        </div>
+        <div class="disc-box">
+          <div class="disc-label">Revenue attribuita a Meta</div>
+          <div class="disc-val red">€540 / mese</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">su budget certamente maggiore</div>
+        </div>
+        <div class="disc-box">
+          <div class="disc-label">Revenue Direct persa</div>
+          <div class="disc-val yellow">-€11.346</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">post spegnimento Meta</div>
+        </div>
+      </div>
+      <div class="comment-note">
+        <div class="note-title">⚡ Perché GA4 non può misurare Meta correttamente</div>
+        1. <strong>iOS 14.5+</strong>: il target di Boomba usa iPhone. La maggior parte nega il tracking → il pixel Meta non li vede → GA4 li registra come Direct o Organic.<br><br>
+        2. <strong>View-through</strong>: Meta funziona per impressioni. L'utente vede l'annuncio, non clicca, torna 2 giorni dopo da Google. GA4 attribuisce a Google, mai a Meta.<br><br>
+        3. <strong>Cross-device</strong>: vede su mobile (Instagram), compra da desktop. GA4 non collega i due dispositivi senza Google Signals.<br><br>
+        <strong>La prova:</strong> Direct revenue -34% con Direct sessioni -2.3%. Statisticamente impossibile senza una causa esterna — quella causa è il retargeting Meta spento.
+      </div>
+      <textarea class="editable-note" id="note-meta" placeholder="Aggiungi una nota per il cliente..."></textarea>
+    </div>
+  </div>
+
+  <!-- Criteo -->
+  <div class="comment-block">
+    <div class="comment-header" onclick="toggleComment('criteo')">
+      <div class="comment-header-left">
+        <div>
+          <div class="comment-channel">Criteo Display</div>
+          <div class="comment-source">criteo / display · Campagne spente il 26 feb</div>
+        </div>
+        <span class="comment-status" style="background:var(--yellow-dim); color:var(--yellow); border:1px solid rgba(255,165,2,0.2);">⚠ RIVALUTARE</span>
+      </div>
+      <span class="comment-arrow" id="arrow-criteo">▼</span>
+    </div>
+    <div class="comment-body" id="body-criteo">
+      <div class="discrepancy-row">
+        <div class="disc-box">
+          <div class="disc-label">Sessioni PRE</div>
+          <div class="disc-val red">5.134</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">durata media: 7 secondi</div>
+        </div>
+        <div class="disc-box">
+          <div class="disc-label">Sessioni POST (residue)</div>
+          <div class="disc-val green">164</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">durata media: 71 secondi</div>
+        </div>
+        <div class="disc-box">
+          <div class="disc-label">EpS POST</div>
+          <div class="disc-val green">€9.81</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">tra i più alti del sito</div>
+        </div>
+      </div>
+      <div class="comment-note">
+        <div class="note-title">⚡ Il paradosso Criteo</div>
+        Le 5.134 sessioni Criteo PRE duravano 7 secondi — traffico di bassissima qualità, probabilmente click accidentali su banner. Giustamente spento.<br><br>
+        Le 164 sessioni rimaste POST (probabilmente cookie/remarketing residui su utenti già visitatori) durano 71 secondi con EpS €9.81 — tra i più alti del sito.<br><br>
+        <strong>Ipotesi:</strong> Criteo in modalità "prospecting" (nuovi utenti) non funziona. Criteo in modalità "retargeting puro" su lista clienti esistente potrebbe avere senso con budget molto controllato. Da testare separatamente prima di una decisione definitiva.
+      </div>
+      <textarea class="editable-note" id="note-criteo" placeholder="Aggiungi una nota per il cliente..."></textarea>
+    </div>
+  </div>
+
+  <!-- Klarna -->
+  <div class="comment-block">
+    <div class="comment-header" onclick="toggleComment('klarna')">
+      <div class="comment-header-left">
+        <div>
+          <div class="comment-channel">KlarnaSearch CPC</div>
+          <div class="comment-source">KlarnaSearch / cpc · Secondo canale per sessioni</div>
+        </div>
+        <span class="comment-status" style="background:var(--red-dim); color:var(--red); border:1px solid rgba(255,71,87,0.2);">✗ DIPENDENZA RISCHIOSA</span>
+      </div>
+      <span class="comment-arrow" id="arrow-klarna">▼</span>
+    </div>
+    <div class="comment-body" id="body-klarna">
+      <div class="discrepancy-row">
+        <div class="disc-box">
+          <div class="disc-label">Sessioni POST</div>
+          <div class="disc-val">4.895</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">2° canale per volume</div>
+        </div>
+        <div class="disc-box">
+          <div class="disc-label">Revenue POST</div>
+          <div class="disc-val red">€60.938</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">-28.9% vs PRE</div>
+        </div>
+        <div class="disc-box">
+          <div class="disc-label">CR</div>
+          <div class="disc-val yellow">1.59%</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">-16.1% vs PRE</div>
+        </div>
+      </div>
+      <div class="comment-note">
+        <div class="note-title">⚡ Il problema strutturale di Klarna</div>
+        Klarna è il secondo canale per volume di sessioni e revenue. Ma Klarna porta utenti che cercano rateizzazione — significa che una fetta significativa del traffico è composta da persone che non potrebbero permettersi il prodotto a prezzo pieno.<br><br>
+        AOV medio del sito: €470. Non è un prodotto economico. Dipendere da Klarna come secondo canale crea fragilità: se Klarna modifica le condizioni o aumenta le commissioni, il sito perde il 25% del traffico paid overnight.<br><br>
+        <strong>Cosa fare:</strong> non spegnere Klarna, ma diversificare. L'obiettivo dovrebbe essere ridurre Klarna da 2° a 3°-4° canale aumentando altri canali più sostenibili (Email, Organic, Brand Search).
+      </div>
+      <textarea class="editable-note" id="note-klarna" placeholder="Aggiungi una nota per il cliente..."></textarea>
+    </div>
+  </div>
+
+  <!-- Direct -->
+  <div class="comment-block">
+    <div class="comment-header" onclick="toggleComment('direct')">
+      <div class="comment-header-left">
+        <div>
+          <div class="comment-channel">Direct</div>
+          <div class="comment-source">(direct) / (none) · Canale "contenitore"</div>
+        </div>
+        <span class="comment-status" style="background:var(--yellow-dim); color:var(--yellow); border:1px solid rgba(255,165,2,0.2);">⚠ ANOMALIA</span>
+      </div>
+      <span class="comment-arrow" id="arrow-direct">▼</span>
+    </div>
+    <div class="comment-body" id="body-direct">
+      <div class="discrepancy-row">
+        <div class="disc-box">
+          <div class="disc-label">Sessioni PRE → POST</div>
+          <div class="disc-val green">-2.3%</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">sostanzialmente stabile</div>
+        </div>
+        <div class="disc-box">
+          <div class="disc-label">Revenue PRE → POST</div>
+          <div class="disc-val red">-34.2%</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">da €33.128 a €21.782</div>
+        </div>
+        <div class="disc-box">
+          <div class="disc-label">Revenue sparita</div>
+          <div class="disc-val red">-€11.346</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">con stesse sessioni</div>
+        </div>
+      </div>
+      <div class="comment-note">
+        <div class="note-title">⚡ Cosa è il traffico "Direct" in realtà</div>
+        In GA4, "Direct" non significa solo "utenti che digitano l'URL". Contiene anche:<br><br>
+        — Traffico da app mobile (Instagram, TikTok) dove il referrer viene perso<br>
+        — Utenti che cliccano da email senza UTM tracking<br>
+        — Traffico da HTTPS → HTTP dove il referrer viene rimosso<br>
+        — Utenti che tornano da bookmark dopo aver visto un annuncio<br><br>
+        <strong>Il dato chiave:</strong> le sessioni Direct sono quasi identiche (-2.3%) ma la revenue crolla del 34%. Questo significa che gli utenti Direct che compravano erano prevalentemente utenti "scaldati" da Meta/Criteo che tornavano. Senza retargeting, le stesse sessioni convertono molto meno.
+      </div>
+      <textarea class="editable-note" id="note-direct" placeholder="Aggiungi una nota per il cliente..."></textarea>
+    </div>
+  </div>
+
+  <!-- Email -->
+  <div class="comment-block">
+    <div class="comment-header" onclick="toggleComment('email')">
+      <div class="comment-header-left">
+        <div>
+          <div class="comment-channel">Email — Klaviyo</div>
+          <div class="comment-source">Klaviyo / email · +84.6% sessioni, CR -27.8%</div>
+        </div>
+        <span class="comment-status" style="background:var(--yellow-dim); color:var(--yellow); border:1px solid rgba(255,165,2,0.2);">⚠ QUALITÀ IN CALO</span>
+      </div>
+      <span class="comment-arrow" id="arrow-email">▼</span>
+    </div>
+    <div class="comment-body" id="body-email">
+      <div class="discrepancy-row">
+        <div class="disc-box">
+          <div class="disc-label">Sessioni PRE → POST</div>
+          <div class="disc-val green">+84.6%</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">396 → 731 sessioni</div>
+        </div>
+        <div class="disc-box">
+          <div class="disc-label">CR PRE → POST</div>
+          <div class="disc-val red">-27.8%</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">conversioni in calo</div>
+        </div>
+        <div class="disc-box">
+          <div class="disc-label">Revenue PRE → POST</div>
+          <div class="disc-val yellow">-2.8%</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:4px;">quasi stabile</div>
+        </div>
+      </div>
+      <div class="comment-note">
+        <div class="note-title">⚡ Volume senza qualità — il segnale da non ignorare</div>
+        Inviare più email sta portando più sessioni, ma il CR sta calando. Questo è il classico segnale di <strong>list fatigue</strong> o di invio a segmenti non caldi.<br><br>
+        Ipotesi: dopo lo spegnimento Meta, si è aumentato il volume di invii email per compensare il calo di traffico. Ma inviare più email a lista fredda abbassa il CR e rischia di bruciare la lista.<br><br>
+        <strong>Azione immediata:</strong> separare i flussi automatici (welcome, abandoned cart, post-purchase) dai broadcast manuali. I flussi automatici tipicamente hanno CR 3-5x superiore ai broadcast. Misurare le due cose separatamente.
+      </div>
+      <textarea class="editable-note" id="note-email" placeholder="Aggiungi una nota per il cliente..."></textarea>
+    </div>
+  </div>
+
+</div><!-- end commenti panel -->
+
+</div><!-- end content -->
+
+<script>
+// ─── TAB NAVIGATION ───────────────────────────────────────────────
+function showTab(id, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('visible');
+  el.classList.add('active');
+}
+
+function toggleComment(id) {
+  const body = document.getElementById('body-' + id);
+  const arrow = document.getElementById('arrow-' + id);
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+// ─── STORAGE KEY ──────────────────────────────────────────────────
+const STORAGE_KEY = 'boomba_monitor_v1';
+
+// ─── DEFAULT DATA ─────────────────────────────────────────────────
+const DEFAULTS = {
+  // Period selector
+  activePeriod: 'g5',
+  periods: {
+    g5: {
+      label: 'Giorno 5 — 27 feb – 3 mar',
+      // Hero metrics
+      sessioni: 24600, utenti: 18676, ordini: 292, revenue: 137249, cr: 1.19, aov: 470,
+      // Traffico
+      eng_rate_post: 96.83, eng_rate_pre: 97.89,
+      dur_post: 39, dur_pre: 34,
+      events_post: 12.5, events_pre: 11.6,
+      bounce_post: 3.17, bounce_pre: 2.1,
+      // Sessioni canali
+      paid_post: 12406, paid_pre: 13267,
+      organic_post: 3703, organic_pre: 4524,
+      direct_post: 6080, direct_pre: 6223,
+      email_post: 731, email_pre: 396,
+      social_post: 201, social_pre: 6181,
+      // Ordini giornalieri
+      d1_orders: 55, d1_rev: 26108, d1_date: '27 feb',
+      d2_orders: 36, d2_rev: 16620, d2_date: '28 feb',
+      d3_orders: 56, d3_rev: 28372, d3_date: '1 mar',
+      d4_orders: 60, d4_rev: 33850, d4_date: '2 mar',
+      d5_orders: 85, d5_rev: 32299, d5_date: '3 mar',
+      // Google Ads
+      brand_clic: 585, brand_impr: 3111, brand_costo: 33.12, brand_conv: 109.41, brand_vconv: 9714, brand_cpo: 25.89,
+      pmax_clic: 6718, pmax_impr: 834047, pmax_costo: 2728, pmax_roas3: 15.54, pmax_roas7: 29.53, pmax_cpa: 25.76,
+      // Meta
+      meta_sess_post: 1037, meta_sess_pre: 5134,
+      meta_rev_post: 879, meta_rev_pre: 540,
+      criteo_sess_post: 164, criteo_sess_pre: 208,
+      criteo_dur_post: 71, criteo_dur_pre: 7,
+      // Notes per channel
+      note_cpc: '', note_meta: '', note_criteo: '', note_klarna: '', note_direct: '', note_email: '',
+      // Verdict notes
+      note_verdict: ''
+    },
+    g7: { label: 'Giorno 7', sessioni: null, utenti: null, ordini: null, revenue: null, cr: null, aov: null,
+      eng_rate_post: null, eng_rate_pre: null, dur_post: null, dur_pre: null, events_post: null, events_pre: null, bounce_post: null, bounce_pre: null,
+      paid_post: null, paid_pre: null, organic_post: null, organic_pre: null, direct_post: null, direct_pre: null, email_post: null, email_pre: null, social_post: null, social_pre: null,
+      d1_orders: null, d1_rev: null, d1_date: 'Giorno 1', d2_orders: null, d2_rev: null, d2_date: 'Giorno 2', d3_orders: null, d3_rev: null, d3_date: 'Giorno 3', d4_orders: null, d4_rev: null, d4_date: 'Giorno 4', d5_orders: null, d5_rev: null, d5_date: 'Giorno 5',
+      brand_clic: null, brand_impr: null, brand_costo: null, brand_conv: null, brand_vconv: null, brand_cpo: null,
+      pmax_clic: null, pmax_impr: null, pmax_costo: null, pmax_roas3: null, pmax_roas7: null, pmax_cpa: null,
+      meta_sess_post: null, meta_sess_pre: null, meta_rev_post: null, meta_rev_pre: null,
+      criteo_sess_post: null, criteo_sess_pre: null, criteo_dur_post: null, criteo_dur_pre: null,
+      note_cpc: '', note_meta: '', note_criteo: '', note_klarna: '', note_direct: '', note_email: '', note_verdict: ''
+    },
+    g14: { label: 'Giorno 14', sessioni: null, utenti: null, ordini: null, revenue: null, cr: null, aov: null,
+      eng_rate_post: null, eng_rate_pre: null, dur_post: null, dur_pre: null, events_post: null, events_pre: null, bounce_post: null, bounce_pre: null,
+      paid_post: null, paid_pre: null, organic_post: null, organic_pre: null, direct_post: null, direct_pre: null, email_post: null, email_pre: null, social_post: null, social_pre: null,
+      d1_orders: null, d1_rev: null, d1_date: 'Giorno 1', d2_orders: null, d2_rev: null, d2_date: 'Giorno 2', d3_orders: null, d3_rev: null, d3_date: 'Giorno 3', d4_orders: null, d4_rev: null, d4_date: 'Giorno 4', d5_orders: null, d5_rev: null, d5_date: 'Giorno 5',
+      brand_clic: null, brand_impr: null, brand_costo: null, brand_conv: null, brand_vconv: null, brand_cpo: null,
+      pmax_clic: null, pmax_impr: null, pmax_costo: null, pmax_roas3: null, pmax_roas7: null, pmax_cpa: null,
+      meta_sess_post: null, meta_sess_pre: null, meta_rev_post: null, meta_rev_pre: null,
+      criteo_sess_post: null, criteo_sess_pre: null, criteo_dur_post: null, criteo_dur_pre: null,
+      note_cpc: '', note_meta: '', note_criteo: '', note_klarna: '', note_direct: '', note_email: '', note_verdict: ''
+    },
+    g20: { label: 'Giorno 20', sessioni: null, utenti: null, ordini: null, revenue: null, cr: null, aov: null,
+      eng_rate_post: null, eng_rate_pre: null, dur_post: null, dur_pre: null, events_post: null, events_pre: null, bounce_post: null, bounce_pre: null,
+      paid_post: null, paid_pre: null, organic_post: null, organic_pre: null, direct_post: null, direct_pre: null, email_post: null, email_pre: null, social_post: null, social_pre: null,
+      d1_orders: null, d1_rev: null, d1_date: 'Giorno 1', d2_orders: null, d2_rev: null, d2_date: 'Giorno 2', d3_orders: null, d3_rev: null, d3_date: 'Giorno 3', d4_orders: null, d4_rev: null, d4_date: 'Giorno 4', d5_orders: null, d5_rev: null, d5_date: 'Giorno 5',
+      brand_clic: null, brand_impr: null, brand_costo: null, brand_conv: null, brand_vconv: null, brand_cpo: null,
+      pmax_clic: null, pmax_impr: null, pmax_costo: null, pmax_roas3: null, pmax_roas7: null, pmax_cpa: null,
+      meta_sess_post: null, meta_sess_pre: null, meta_rev_post: null, meta_rev_pre: null,
+      criteo_sess_post: null, criteo_sess_pre: null, criteo_dur_post: null, criteo_dur_pre: null,
+      note_cpc: '', note_meta: '', note_criteo: '', note_klarna: '', note_direct: '', note_email: '', note_verdict: ''
+    },
+    g30: { label: 'Giorno 30', sessioni: null, utenti: null, ordini: null, revenue: null, cr: null, aov: null,
+      eng_rate_post: null, eng_rate_pre: null, dur_post: null, dur_pre: null, events_post: null, events_pre: null, bounce_post: null, bounce_pre: null,
+      paid_post: null, paid_pre: null, organic_post: null, organic_pre: null, direct_post: null, direct_pre: null, email_post: null, email_pre: null, social_post: null, social_pre: null,
+      d1_orders: null, d1_rev: null, d1_date: 'Giorno 1', d2_orders: null, d2_rev: null, d2_date: 'Giorno 2', d3_orders: null, d3_rev: null, d3_date: 'Giorno 3', d4_orders: null, d4_rev: null, d4_date: 'Giorno 4', d5_orders: null, d5_rev: null, d5_date: 'Giorno 5',
+      brand_clic: null, brand_impr: null, brand_costo: null, brand_conv: null, brand_vconv: null, brand_cpo: null,
+      pmax_clic: null, pmax_impr: null, pmax_costo: null, pmax_roas3: null, pmax_roas7: null, pmax_cpa: null,
+      meta_sess_post: null, meta_sess_pre: null, meta_rev_post: null, meta_rev_pre: null,
+      criteo_sess_post: null, criteo_sess_pre: null, criteo_dur_post: null, criteo_dur_pre: null,
+      note_cpc: '', note_meta: '', note_criteo: '', note_klarna: '', note_direct: '', note_email: '', note_verdict: ''
+    }
+  }
+};
+
+// ─── LOAD / SAVE ──────────────────────────────────────────────────
+function loadData() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Merge with defaults to handle new fields
+      Object.keys(DEFAULTS.periods).forEach(p => {
+        if (parsed.periods[p]) {
+          parsed.periods[p] = Object.assign({}, DEFAULTS.periods[p], parsed.periods[p]);
+        }
+      });
+      return parsed;
+    }
+  } catch(e) {}
+  return JSON.parse(JSON.stringify(DEFAULTS));
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+}
+
+let appData = loadData();
+
+// ─── PERIOD SWITCHER ──────────────────────────────────────────────
+function switchPeriod(pid) {
+  appData.activePeriod = pid;
+  saveData();
+  document.querySelectorAll('.period-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.pid === pid);
+  });
+  renderAll();
+  updateTopbar();
+}
+
+function updateTopbar() {
+  const p = appData.periods[appData.activePeriod];
+  document.getElementById('topbar-period').textContent = p.label;
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────
+function fmt(n, prefix='') {
+  if (n === null || n === undefined || n === '') return '—';
+  const num = parseFloat(n);
+  if (isNaN(num)) return '—';
+  return prefix + num.toLocaleString('it-IT');
+}
+
+function fmtEur(n) {
+  if (n === null || n === undefined || n === '') return '—';
+  const num = parseFloat(n);
+  if (isNaN(num)) return '—';
+  return '€' + num.toLocaleString('it-IT');
+}
+
+function delta(post, pre, invertColor=false) {
+  if (!post || !pre) return '<span style="color:var(--muted);font-family:var(--mono);font-size:11px;">—</span>';
+  const d = ((post - pre) / pre * 100).toFixed(1);
+  const isPos = parseFloat(d) > 0;
+  const color = invertColor ? (isPos ? 'var(--red)' : 'var(--green)') : (isPos ? 'var(--green)' : 'var(--red)');
+  const arrow = isPos ? '▲' : '▼';
+  return `<span style="color:${color};font-family:var(--mono);font-size:11px;">${arrow} ${Math.abs(d)}%</span>`;
+}
+
+function editableField(key, pid, opts={}) {
+  const val = appData.periods[pid][key];
+  const placeholder = opts.placeholder || 'inserisci...';
+  const type = opts.type || 'number';
+  const style = opts.style || '';
+  return `<input 
+    class="inline-edit" 
+    type="${type}" 
+    value="${val !== null ? val : ''}" 
+    placeholder="${placeholder}"
+    data-key="${key}" 
+    data-pid="${pid}"
+    style="${style}"
+    oninput="updateField('${key}','${pid}',this.value)"
+    onchange="updateField('${key}','${pid}',this.value)">`;
+}
+
+function updateField(key, pid, value) {
+  const num = parseFloat(value);
+  appData.periods[pid][key] = isNaN(num) ? (value || null) : num;
+  saveData();
+  // Re-render hero if it's a hero metric
+  const heroKeys = ['sessioni','utenti','ordini','revenue','cr','aov'];
+  if (heroKeys.includes(key)) renderHero();
+}
+
+function updateNote(key, pid, value) {
+  appData.periods[pid][key] = value;
+  saveData();
+}
+
+// ─── RENDER HERO ──────────────────────────────────────────────────
+function renderHero() {
+  const pid = appData.activePeriod;
+  const d = appData.periods[pid];
+  const crCalc = d.sessioni && d.ordini ? (d.ordini / d.sessioni * 100).toFixed(2) : null;
+  const aovCalc = d.ordini && d.revenue ? (d.revenue / d.ordini).toFixed(0) : null;
+
+  document.getElementById('hero-sessioni').innerHTML = editableField('sessioni', pid, {placeholder:'es. 24600'});
+  document.getElementById('hero-utenti').innerHTML = editableField('utenti', pid, {placeholder:'es. 18676'});
+  document.getElementById('hero-ordini').innerHTML = editableField('ordini', pid, {placeholder:'es. 292'});
+  document.getElementById('hero-revenue').innerHTML = editableField('revenue', pid, {placeholder:'es. 137249'});
+  document.getElementById('hero-cr').innerHTML = crCalc ? `<span style="color:var(--green);font-family:var(--mono);font-size:22px;font-weight:700;">${crCalc}%</span>` : editableField('cr', pid, {placeholder:'es. 1.19'});
+  document.getElementById('hero-aov').innerHTML = aovCalc ? `<span style="font-family:var(--mono);font-size:22px;font-weight:700;">${fmtEur(parseInt(aovCalc))}</span>` : editableField('aov', pid, {placeholder:'es. 470'});
+}
+
+// ─── RENDER TRAFFICO ──────────────────────────────────────────────
+function renderTraffico() {
+  const pid = appData.activePeriod;
+  const d = appData.periods[pid];
+  const fields = [
+    ['eng_rate_post','eng_rate_pre','Tasso coinvolgimento','%'],
+    ['dur_post','dur_pre','Durata media sessione','s'],
+    ['events_post','events_pre','Eventi per sessione',''],
+    ['bounce_post','bounce_pre','Bounce rate','%'],
+  ];
+  let html = '';
+  fields.forEach(([kp, kpre, label, unit]) => {
+    html += `<div class="stat-row">
+      <div><div class="stat-label">${label}</div></div>
+      <div class="stat-vals">
+        <div class="stat-pre">${editableField(kpre, pid, {placeholder:'PRE', style:'width:70px'})}</div>
+        <div class="stat-post">${editableField(kp, pid, {placeholder:'POST', style:'width:70px'})}</div>
+        ${delta(d[kp], d[kpre])}
+      </div>
+    </div>`;
+  });
+  document.getElementById('traffico-quality').innerHTML = html;
+
+  const channels = [
+    ['paid_post','paid_pre','Paid (Google + Klarna)'],
+    ['organic_post','organic_pre','Organic Search'],
+    ['direct_post','direct_pre','Direct'],
+    ['email_post','email_pre','Email (Klaviyo)'],
+    ['social_post','social_pre','Paid Social (Meta+TikTok)'],
+  ];
+  let html2 = '';
+  channels.forEach(([kp, kpre, label]) => {
+    html2 += `<div class="stat-row">
+      <div><div class="stat-label">${label}</div></div>
+      <div class="stat-vals">
+        <div class="stat-pre">${editableField(kpre, pid, {placeholder:'PRE', style:'width:70px'})}</div>
+        <div class="stat-post">${editableField(kp, pid, {placeholder:'POST', style:'width:70px'})}</div>
+        ${delta(d[kp], d[kpre])}
+      </div>
+    </div>`;
+  });
+  document.getElementById('traffico-channels').innerHTML = html2;
+}
+
+// ─── RENDER ORDINI ────────────────────────────────────────────────
+function renderOrdini() {
+  const pid = appData.activePeriod;
+  const d = appData.periods[pid];
+  const days = [
+    ['d1','d1_orders','d1_rev','d1_date'],
+    ['d2','d2_orders','d2_rev','d2_date'],
+    ['d3','d3_orders','d3_rev','d3_date'],
+    ['d4','d4_orders','d4_rev','d4_date'],
+    ['d5','d5_orders','d5_rev','d5_date'],
+  ];
+  const maxOrders = Math.max(...days.map(([,ok]) => parseFloat(d[ok])||0)) || 1;
+  let html = '';
+  days.forEach(([id, ok, rk, dk], i) => {
+    const orders = parseFloat(d[ok]) || 0;
+    const rev = parseFloat(d[rk]) || 0;
+    const aov = orders ? (rev/orders).toFixed(0) : null;
+    const barW = Math.round((orders/maxOrders)*100);
+    const isMin = orders === Math.min(...days.map(([,ok2]) => parseFloat(d[ok2])||Infinity)) && orders > 0;
+    const isMax = orders === maxOrders && orders > 0;
+    html += `<div class="day-card" style="${isMin?'border-color:var(--red)':isMax?'border-color:var(--green)':''}">
+      <div class="day-card-date">${editableField(dk, pid, {type:'text', placeholder:'es. 27 feb', style:'width:100%;font-size:10px;'})}</div>
+      <div class="day-card-orders" style="${isMin?'color:var(--red)':isMax?'color:var(--green)':''}">${editableField(ok, pid, {placeholder:'ordini', style:'width:100%;font-size:22px;font-weight:700;'})}</div>
+      <div class="day-card-rev">${editableField(rk, pid, {placeholder:'revenue €', style:'width:100%;'})}</div>
+      <div class="day-card-aov">AOV: ${aov ? '€'+parseInt(aov).toLocaleString('it-IT') : '—'}</div>
+      <div class="day-bar-wrap"><div class="day-bar" style="width:${barW}%;background:${isMin?'var(--red)':isMax?'var(--green)':'var(--blue)'};"></div></div>
+    </div>`;
+  });
+  document.getElementById('ordini-daily').innerHTML = html;
+
+  // Totals
+  const totOrders = days.reduce((s,[,ok])=>s+(parseFloat(d[ok])||0),0);
+  const totRev = days.reduce((s,[,,rk])=>s+(parseFloat(d[rk])||0),0);
+  const totAov = totOrders ? (totRev/totOrders).toFixed(0) : null;
+  const totCR = d.sessioni ? (totOrders/d.sessioni*100).toFixed(2) : null;
+  document.getElementById('ordini-totals').innerHTML = `
+    <div class="stat-row"><div><div class="stat-label">Ordini totali</div></div><div class="stat-vals"><div class="stat-post">${fmt(totOrders)}</div></div></div>
+    <div class="stat-row"><div><div class="stat-label">Revenue totale</div></div><div class="stat-vals"><div class="stat-post">${fmtEur(totRev)}</div></div></div>
+    <div class="stat-row"><div><div class="stat-label">AOV medio</div></div><div class="stat-vals"><div class="stat-post">${totAov ? fmtEur(parseInt(totAov)) : '—'}</div></div></div>
+    <div class="stat-row"><div><div class="stat-label">CR globale</div></div><div class="stat-vals"><div class="stat-post" style="color:var(--green)">${totCR ? totCR+'%' : '—'}</div></div></div>
+  `;
+}
+
+// ─── RENDER GADS ─────────────────────────────────────────────────
+function renderGads() {
+  const pid = appData.activePeriod;
+  const d = appData.periods[pid];
+  const brandFields = [
+    ['brand_clic','Clic'],['brand_impr','Impressioni'],['brand_costo','Costo €'],
+    ['brand_conv','Conversioni'],['brand_vconv','Valore conv. €'],['brand_cpo','CPO €']
+  ];
+  let html = '';
+  brandFields.forEach(([k,label]) => {
+    html += `<div class="stat-row">
+      <div><div class="stat-label">${label}</div></div>
+      <div class="stat-vals"><div class="stat-post">${editableField(k, pid, {placeholder:'inserisci', style:'width:100px'})}</div></div>
+    </div>`;
+  });
+  document.getElementById('gads-brand').innerHTML = html;
+
+  const pmaxFields = [
+    ['pmax_clic','Clic'],['pmax_impr','Impressioni'],['pmax_costo','Costo €'],
+    ['pmax_roas3','ROAS 3gg'],['pmax_roas7','ROAS 7gg'],['pmax_cpa','CPA €']
+  ];
+  let html2 = '';
+  pmaxFields.forEach(([k,label]) => {
+    html2 += `<div class="stat-row">
+      <div><div class="stat-label">${label}</div></div>
+      <div class="stat-vals"><div class="stat-post">${editableField(k, pid, {placeholder:'inserisci', style:'width:100px'})}</div></div>
+    </div>`;
+  });
+  document.getElementById('gads-pmax').innerHTML = html2;
+}
+
+// ─── RENDER META ──────────────────────────────────────────────────
+function renderMeta() {
+  const pid = appData.activePeriod;
+  const d = appData.periods[pid];
+
+  document.getElementById('meta-fields').innerHTML = `
+    <div class="stat-row"><div><div class="stat-label">Sessioni Meta PRE</div></div><div class="stat-vals"><div class="stat-post">${editableField('meta_sess_pre',pid,{placeholder:'es. 5134',style:'width:100px'})}</div></div></div>
+    <div class="stat-row"><div><div class="stat-label">Sessioni Meta POST</div></div><div class="stat-vals"><div class="stat-post">${editableField('meta_sess_post',pid,{placeholder:'es. 1037',style:'width:100px'})}</div>${delta(d.meta_sess_post,d.meta_sess_pre,true)}</div></div>
+    <div class="stat-row"><div><div class="stat-label">Revenue Meta PRE</div></div><div class="stat-vals"><div class="stat-post">${editableField('meta_rev_pre',pid,{placeholder:'es. 540',style:'width:100px'})}</div></div></div>
+    <div class="stat-row"><div><div class="stat-label">Revenue Meta POST</div></div><div class="stat-vals"><div class="stat-post">${editableField('meta_rev_post',pid,{placeholder:'es. 879',style:'width:100px'})}</div></div></div>
+  `;
+
+  document.getElementById('criteo-fields').innerHTML = `
+    <div class="stat-row"><div><div class="stat-label">Sessioni Criteo PRE</div></div><div class="stat-vals"><div class="stat-post">${editableField('criteo_sess_pre',pid,{placeholder:'es. 208',style:'width:100px'})}</div></div></div>
+    <div class="stat-row"><div><div class="stat-label">Sessioni Criteo POST</div></div><div class="stat-vals"><div class="stat-post">${editableField('criteo_sess_post',pid,{placeholder:'es. 164',style:'width:100px'})}</div>${delta(d.criteo_sess_post,d.criteo_sess_pre,true)}</div></div>
+    <div class="stat-row"><div><div class="stat-label">Durata sessione PRE</div></div><div class="stat-vals"><div class="stat-post">${editableField('criteo_dur_pre',pid,{placeholder:'es. 7',style:'width:100px'})}</div></div></div>
+    <div class="stat-row"><div><div class="stat-label">Durata sessione POST</div></div><div class="stat-vals"><div class="stat-post">${editableField('criteo_dur_post',pid,{placeholder:'es. 71',style:'width:100px'})}</div>${delta(d.criteo_dur_post,d.criteo_dur_pre)}</div></div>
+  `;
+}
+
+// ─── RENDER NOTES ─────────────────────────────────────────────────
+function renderNotes() {
+  const pid = appData.activePeriod;
+  const d = appData.periods[pid];
+  ['cpc','meta','criteo','klarna','direct','email','verdict'].forEach(key => {
+    const el = document.getElementById('note-' + key);
+    if (el) {
+      el.value = d['note_' + key] || '';
+      el.oninput = () => updateNote('note_' + key, pid, el.value);
+    }
+  });
+}
+
+// ─── RENDER ALL ───────────────────────────────────────────────────
+function renderAll() {
+  renderHero();
+  renderTraffico();
+  renderOrdini();
+  renderGads();
+  renderMeta();
+  renderNotes();
+}
+
+// ─── PERIOD BUTTONS INJECTION ─────────────────────────────────────
+function injectPeriodSwitcher() {
+  const wrap = document.getElementById('period-switcher');
+  if (!wrap) return;
+  const order = ['g5','g7','g14','g20','g30'];
+  wrap.innerHTML = order.map(pid => {
+    if (!appData.periods[pid]) return '';
+    const active = pid === appData.activePeriod ? 'active' : '';
+    const label = appData.periods[pid].label.split('—')[0].trim();
+    return `<button class="period-btn ${active}" data-pid="${pid}" onclick="switchPeriod('${pid}')">${label}</button>`;
+  }).join('');
+}
+
+// ─── EXPORT / IMPORT ──────────────────────────────────────────────
+function exportData() {
+  const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'boomba-monitor-backup.json';
+  a.click();
+}
+
+function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      appData = JSON.parse(e.target.result);
+      saveData();
+      injectPeriodSwitcher();
+      renderAll();
+      updateTopbar();
+      alert('✓ Dati importati correttamente');
+    } catch(err) {
+      alert('Errore nel file JSON');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetPeriod() {
+  if (!confirm('Cancellare tutti i dati del periodo corrente?')) return;
+  const pid = appData.activePeriod;
+  appData.periods[pid] = JSON.parse(JSON.stringify(DEFAULTS.periods[pid] || DEFAULTS.periods.g7));
+  saveData();
+  renderAll();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  injectPeriodSwitcher();
+  renderAll();
+  updateTopbar();
+});
+</script>
+</body>
+</html>
