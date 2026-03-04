@@ -711,7 +711,7 @@ function toggleC(id) {
 }
 
 // ─── DATI ORDINI DA CRM ─────────────────────────────────
-const STORAGE_KEY = 'boomba_v3';
+const STORAGE_KEY = 'boomba_v4';
 
 const DEFAULTS = {
   activePeriod: 'g5',
@@ -889,6 +889,12 @@ function resetPeriod() {
 
 // ─── INIT ───────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // Assicura che solo panel-traffico sia visible al caricamento
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
+  document.getElementById('panel-traffico').classList.add('visible');
+  // Assicura che solo il primo tab sia active
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab')[0].classList.add('active');
   injectPeriods();
   renderOrdini();
   renderNote();
