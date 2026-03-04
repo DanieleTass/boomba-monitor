@@ -421,7 +421,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); min-hei
     <span class="badge badge-phase">Primi segnali — Fase di inerzia</span>
   </div>
   <div class="tb-right">
-    <span class="period-label">27 feb – 3 mar 2026</span>
+    <span class="period-label" id="topbar-period">27 feb – 3 mar 2026</span>
     <span>vs</span>
     <span>22–26 feb 2026</span>
     <span style="color:var(--red)">Spegnimento: 26 feb</span>
@@ -1518,7 +1518,8 @@ function switchPeriod(pid) {
 
 function updateTopbar() {
   const p = appData.periods[appData.activePeriod];
-  document.getElementById('topbar-period').textContent = p.label;
+  const el = document.getElementById('topbar-period');
+  if (el) el.textContent = p.label;
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────
